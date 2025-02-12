@@ -171,6 +171,9 @@ jobs:
       #     output: security-results/sbom/sbom.json
           
       #4. Container scanning with Trivy
+      - name: Build Docker Image
+        run: docker build -t vulnerable-bank:latest .
+
       - name: Container Scan
         uses: aquasecurity/trivy-action@master
         with:
