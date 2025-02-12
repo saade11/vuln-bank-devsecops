@@ -196,6 +196,9 @@ jobs:
       - name: Build Docker Image
         run: docker build -t vulnerable-bank:latest .
 
+      - name: Create Trivy Results Directory
+        run: mkdir -p security-results/trivy
+
       # Step 3: Run Trivy scan without failing the pipeline
       - name: Container Scan
         uses: aquasecurity/trivy-action@master
