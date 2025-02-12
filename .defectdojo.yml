@@ -1,0 +1,30 @@
+# # .defectdojo.yml
+
+# host: 'https://your-defectdojo-instance.com'
+# api_key: ''  # Will be set via GitHub secrets
+# product_name: 'Vulnerable Bank'
+# product_type: 'Web Application'
+# engagement_name: 'Automated Security Scan'
+
+# # Tool configurations
+# tools:
+#   sonarqube:
+#     importer: 'SonarQube Scan'
+#     active: true
+    
+#   snyk:
+#     importer: 'Snyk Scan'
+#     active: true
+    
+#   zap:
+#     importer: 'ZAP Scan'
+#     active: true
+    
+#   trivy:
+#     importer: 'Trivy Scan'
+#     active: true
+
+# notifications:
+#   slack:
+#     webhook_url: ''  # Will be set via GitHub secrets
+#     channel: '#security-alerts'

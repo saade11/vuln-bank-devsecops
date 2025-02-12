@@ -1,0 +1,39 @@
+# # monitoring/wazuh-config.yml
+
+# wazuh-manager:
+#   host: 'your-wazuh-manager'
+#   port: 1514
+#   protocol: 'tcp'
+  
+# agent:
+#   name: 'vulnerable-bank'
+#   groups: ['web-apps', 'banking']
+  
+# monitoring:
+#   frequency: 300  # 5 minutes
+  
+#   modules:
+#     - file-integrity:
+#         directories:
+#           - /app
+#           - /app/templates
+#           - /app/static
+#         ignore:
+#           - /app/__pycache__
+#           - /app/*.pyc
+    
+#     - log-analysis:
+#         files:
+#           - /var/log/nginx/access.log
+#           - /var/log/nginx/error.log
+#           - /app/logs/*.log
+        
+#     - security-events:
+#         enabled: true
+#         frequency: 60  # 1 minute
+        
+# alerts:
+#   level: 3  # Minimum alert level
+#   formats:
+#     - email
+#     - slack

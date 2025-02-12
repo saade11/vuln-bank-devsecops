@@ -1,0 +1,259 @@
+# name: DevSecOps Pipeline
+
+# on:
+#   push:
+#     branches: [ main ]
+#   pull_request:
+#     branches: [ main ]
+
+# jobs:
+#   security-checks:
+#     runs-on: ubuntu-latest
+#     steps:
+#       # Basic checkout
+#       - uses: actions/checkout@v4
+      
+#       # Python setup
+#       - name: Set up Python
+#         uses: actions/setup-python@v4
+#         with:
+#           python-version: '3.9'
+          
+#       # Install dependencies
+#       - name: Install dependencies
+#         run: |
+#           python -m pip install --upgrade pip
+#           pip install -r requirements.txt
+          
+#       # 1. SAST with SonarQube
+#       - name: SonarQube Scan
+#         uses: sonarsource/sonarqube-scan-action@master
+#         env:
+#           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+#           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+#         with:
+#           args: >
+#             -Dsonar.projectKey=commando-x_vuln-bank
+#             -Dsonar.sources=.
+#             -Dsonar.python.version=3.9
+            
+#       # 2. Dependency scanning with Snyk
+#       - name: Snyk Code & Dependencies Scan
+#         uses: snyk/actions/python@master
+#         env:
+#           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+#         with:
+#           args: --severity-threshold=high
+          
+#       # 3. Generate SBOM
+#       - name: Generate SBOM
+#         uses: anchore/syft-action@v2
+#         with:
+#           image: vulnerable-bank:latest
+#           output: sbom.json
+          
+#       # 4. Container scanning
+#       - name: Build and scan container
+#         uses: aquasecurity/trivy-action@master
+#         with:
+#           image-ref: 'vulnerable-bank:latest'
+#           format: 'table'
+#           exit-code: '1'
+#           ignore-unfixed: true
+#           vuln-type: 'os,library'
+#           severity: 'CRITICAL,HIGH'
+
+#       # 5. Infrastructure as Code scanning
+#       - name: Scan IaC configurations
+#         uses: bridgecrewio/checkov-action@master
+#         with:
+#           directory: .
+#           framework: dockerfile,github_actions
+          
+#       # 6. OWASP ZAP scan
+#       - name: ZAP Scan
+#         uses: zaproxy/action-baseline@v0.9.0
+#         with:
+#           token: ${{ secrets.GITHUB_TOKEN }}
+#           docker_name: 'owasp/zap2docker-stable'
+#           target: 'http://localhost:5000'
+#           rules_file_name: '.zap/rules.tsv'
+#           cmd_options: '-a'
+
+#   deploy:
+#     needs: security-checks
+#     runs-on: ubuntu-latest
+#     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+#     steps:
+#       - uses: actions/checkout@v4
+      
+#       # AWS configuration
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v1
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ secrets.AWS_REGION }}
+          
+#       # Deploy to EC2
+#       - name: Deploy to EC2
+#         run: |
+#           # deployment script here In a bit
+#           echo "Deploying to EC2..."
+
+
+name: DevSecOps Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security-checks:
+    runs-on: ubuntu-latest
+    steps:
+      # Basic checkout
+      - uses: actions/checkout@v4
+      
+      # Python setup
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          
+      # Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          
+      # 1. SAST with SonarQube
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.projectKey=commando-x_vuln-bank
+            -Dsonar.sources=.
+            -Dsonar.python.version=3.9
+            
+      # Save SonarQube results
+      - name: Store SonarQube Results
+        run: |
+          mkdir -p security-results/sonarqube
+          curl -H "Authorization: Bearer ${{ secrets.SONAR_TOKEN }}" \
+               "${{ secrets.SONAR_HOST_URL }}/api/issues/search?projectKeys=vulnerable-bank" \
+               > security-results/sonarqube/issues.json
+            
+      # 2. Dependency scanning with Snyk
+      - name: Snyk Code & Dependencies Scan
+        uses: snyk/actions/python@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --json-file-output=security-results/snyk/scan-results.json
+          
+      # 3. Generate SBOM
+      - name: Generate SBOM
+        uses: anchore/syft-action@v2
+        with:
+          image: vulnerable-bank:latest
+          output: security-results/sbom/sbom.json
+          
+      # 4. Container scanning with Trivy
+      - name: Container Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'vulnerable-bank:latest'
+          format: 'json'
+          output: 'security-results/trivy/scan-results.json'
+          severity: 'CRITICAL,HIGH'
+
+      # 5. Infrastructure as Code scanning with Checkov
+      - name: Scan IaC
+        id: checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: .
+          framework: dockerfile,github_actions
+          output_format: json
+          output_file: security-results/checkov/results.json
+          
+      # 6. OWASP ZAP scan
+      - name: ZAP Scan
+        uses: zaproxy/action-baseline@v0.9.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          docker_name: 'owasp/zap2docker-stable'
+          target: 'http://localhost:5000'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-J security-results/zap/zap-results.json'
+
+      # Store all security scan results as artifacts
+      - name: Upload Security Scan Results
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-scan-results
+          path: security-results/
+          retention-days: 90
+
+      # Generate HTML report from all results
+      - name: Generate Security Report
+        run: |
+          echo "<!DOCTYPE html>
+          <html>
+          <head>
+            <title>Security Scan Results</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; }
+              .tool-section { margin-bottom: 30px; }
+              .severity-high { color: red; }
+              .severity-medium { color: orange; }
+              .severity-low { color: yellow; }
+            </style>
+          </head>
+          <body>
+            <h1>Security Scan Results</h1>
+            <div class='tool-section'>
+              <h2>Summary</h2>
+              <p>Scan completed at $(date)</p>
+              <p>Repository: $GITHUB_REPOSITORY</p>
+              <p>Branch: $GITHUB_REF</p>
+            </div>
+          </body>
+          </html>" > security-results/report.html
+
+      # Upload HTML report as artifact
+      - name: Upload HTML Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-report
+          path: security-results/report.html
+          retention-days: 90
+
+  deploy:
+    needs: security-checks
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      # AWS configuration
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          
+      # Deploy to EC2
+      - name: Deploy to EC2
+        run: |
+          chmod +x deploy/deploy.sh
+          ./deploy/deploy.sh
