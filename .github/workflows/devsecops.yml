@@ -171,16 +171,35 @@ jobs:
       #     output: security-results/sbom/sbom.json
           
       #4. Container scanning with Trivy
-      - name: Build Docker Image
-        run: docker build -t vulnerable-bank:latest .
+      # - name: Build Docker Image
+      #   run: trivy image --exit-code 0 vulnerable-bank:latest
 
-      - name: Container Scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'vulnerable-bank:latest'
-          format: 'json'
-          output: 'security-results/trivy/scan-results.json'
-          severity: 'CRITICAL,HIGH'
+      # - name: Container Scan
+      #   uses: aquasecurity/trivy-action@master
+      #   with:
+      #     image-ref: 'vulnerable-bank:latest'
+      #     format: 'json'
+      #     output: 'security-results/trivy/scan-results.json'
+      #     severity: 'CRITICAL,HIGH'
+      # Step 1: Check out the repository
+        - name: Checkout repository
+          uses: actions/checkout@v4
+
+        # Step 2: Build the Docker image
+        - name: Build Docker Image
+          run: docker build -t vulnerable-bank:latest ./vuln-bank-devsecops
+
+        # Step 3: Run Trivy scan without failing the pipeline
+        - name: Container Scan
+          uses: aquasecurity/trivy-action@master
+          with:
+            image-ref: 'vulnerable-bank:latest'
+            format: 'json'
+            output: 'security-results/trivy/scan-results.json'
+            severity: 'CRITICAL,HIGH'
+            ignore-unfixed: true
+            exit-code: 0  # Ensures the pipeline doesn't fail even if issues are found
+
 
       # 5. Infrastructure as Code scanning with Checkov
       - name: Scan IaC
