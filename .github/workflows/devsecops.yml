@@ -168,7 +168,7 @@ jobs:
           image: vulnerable-bank:latest
           output: security-results/sbom/sbom.json
           
-      4. Container scanning with Trivy
+      #4. Container scanning with Trivy
       - name: Container Scan
         uses: aquasecurity/trivy-action@master
         with:
