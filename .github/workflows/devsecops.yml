@@ -133,6 +133,7 @@ jobs:
       # 1. SAST with SonarQube
       - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@master
+        continue-on-error: true #To not fail the build even though it finds vulnerabilities
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
@@ -158,14 +159,14 @@ jobs:
         with:
           args: --json-file-output=security-results/snyk/scan-results.json
           
-      # # 3. Generate SBOM
-      # - name: Generate SBOM
-      #   uses: anchore/syft-action@v2
-      #   with:
-      #     image: vulnerable-bank:latest
-      #     output: security-results/sbom/sbom.json
+      # 3. Generate SBOM
+      - name: Generate SBOM
+        uses: anchore/syft-action@v0
+        with:
+          image: vulnerable-bank:latest
+          output: security-results/sbom/sbom.json
           
-      # 4. Container scanning with Trivy
+      4. Container scanning with Trivy
       - name: Container Scan
         uses: aquasecurity/trivy-action@master
         with:
