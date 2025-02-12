@@ -141,6 +141,7 @@ jobs:
         with:
           args: >
             -Dsonar.projectKey=commando-x_vuln-bank
+            -Dsonar.organization=commando-x
             -Dsonar.sources=.
             -Dsonar.python.version=3.9
 
