@@ -16,8 +16,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Run SonarQube Scan
+      
+      - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@master
         continue-on-error: true
         env:
@@ -30,7 +30,7 @@ jobs:
             -Dsonar.sources=.
             -Dsonar.python.version=3.9
 
-      - name: Save SonarQube Results
+      - name: Store SonarQube Results
         run: |
           mkdir -p security-results/sonarqube
           curl -H "Authorization: Bearer ${{ secrets.SONAR_TOKEN }}" \
@@ -89,11 +89,9 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # (Optional) Fix workspace permissions
       - name: Fix Permissions on Workspace
         run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
 
-      # Build the Docker image (adjust build context if your Dockerfile is in a subdirectory)
       - name: Build Docker Image
         run: docker build -t vulnerable-bank:latest .
 
@@ -108,7 +106,7 @@ jobs:
           output: 'security-results/trivy/scan-results.json'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
-          exit-code: 0  # Do not fail even if vulnerabilities are found
+          exit-code: 0  # Continue even if vulnerabilities are found
 
       - name: Upload Trivy Artifact
         uses: actions/upload-artifact@v4
@@ -165,7 +163,8 @@ jobs:
         uses: zaproxy/action-baseline@v0.9.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          docker_name: 'owasp/zap2docker-stable'
+          # Use the alternative image from Docker Hub (or switch to GHCR if desired)
+          docker_name: 'zaproxy/zap-stable:latest'
           target: 'http://localhost:5000'
           rules_file_name: '.zap/rules.tsv'
           cmd_options: '-J security-results/zap/zap-results.json'
@@ -174,3 +173,73 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: zap-results
+          path: security-results/zap/zap-results.json
+          retention-days: 90
+
+  # -----------------------------
+  # Report – Generate HTML Summary Report
+  # -----------------------------
+  report:
+    name: Generate HTML Report
+    runs-on: ubuntu-latest
+    needs: [sast, sca, container_scan, iac_scan, zap_scan]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Generate Security Report
+        run: |
+          mkdir -p security-results
+          echo "<!DOCTYPE html>
+          <html>
+          <head>
+            <title>Security Scan Results</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; }
+              .tool-section { margin-bottom: 30px; }
+              .severity-high { color: red; }
+              .severity-medium { color: orange; }
+              .severity-low { color: yellow; }
+            </style>
+          </head>
+          <body>
+            <h1>Security Scan Results</h1>
+            <div class='tool-section'>
+              <h2>Summary</h2>
+              <p>Scan completed at $(date)</p>
+              <p>Repository: $GITHUB_REPOSITORY</p>
+              <p>Branch: $GITHUB_REF</p>
+            </div>
+          </body>
+          </html>" > security-results/report.html
+
+      - name: Upload HTML Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: security-results/report.html
+          retention-days: 90
+
+  # -----------------------------
+  # Deploy – Deployment Stage
+  # -----------------------------
+  deploy:
+    name: Deploy to EC2
+    needs: [sast, sca, container_scan, iac_scan, zap_scan, report]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy to EC2
+        run: |
+          chmod +x deploy/deploy.sh
+          ./deploy/deploy.sh
