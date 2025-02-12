@@ -182,8 +182,15 @@ jobs:
       #     output: 'security-results/trivy/scan-results.json'
       #     severity: 'CRITICAL,HIGH'
       # Step 1: Check out the repository
+      # Fix permissions issue before checkout
+      - name: Fix permissions on workspace
+        run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+
+      # Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Ensures full history is fetched (optional)
 
       # Step 2: Build the Docker image
       - name: Build Docker Image
