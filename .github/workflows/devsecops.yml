@@ -196,7 +196,7 @@ jobs:
 
       # Store all security scan results as artifacts
       - name: Upload Security Scan Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: security-scan-results
           path: security-results/
