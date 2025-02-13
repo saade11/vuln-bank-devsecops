@@ -38,11 +38,27 @@ cat << 'EOF' > security-results/report.html
             border: 1px solid #ddd;
             border-radius: 4px;
         }
+        /* Colorful Headers for Each Tool */
+        .tool-section.sonarqube h2 {
+            background: #4c9bd6;  /* Blue */
+            color: white;
+        }
+        .tool-section.snyk h2 {
+            background: #582d82;  /* Purple */
+            color: white;
+        }
+        .tool-section.trivy h2 {
+            background: #2d9882;  /* Teal */
+            color: white;
+        }
+        .tool-section.zap h2 {
+            background: #d63619;  /* Red-Orange */
+            color: white;
+        }
         .tool-section h2 {
-            color: #2c3e50;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
+            padding: 15px 20px;
+            margin: -20px -20px 20px -20px;
+            border-radius: 4px 4px 0 0;
         }
         .vulnerability-item {
             margin: 15px 0;
@@ -85,6 +101,9 @@ cat << 'EOF' > security-results/report.html
             justify-content: space-around;
             margin: 20px 0;
             flex-wrap: wrap;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 4px;
         }
         .stat-item {
             text-align: center;
@@ -124,7 +143,7 @@ cat << 'EOF' > security-results/report.html
         </div>
 
         <!-- SonarQube Results -->
-        <div class="tool-section">
+        <div class="tool-section sonarqube">
             <h2>Static Application Security Testing (SonarQube)</h2>
             <div class="stats">
                 $(jq -r '.issues | group_by(.severity) | map({severity: .[0].severity, count: length}) | map("<div class=\"stat-item\"><div class=\"stat-number\">" + (.count|tostring) + "</div><div>" + .severity + "</div></div>") | join("")' security-results/sonarqube/issues.json 2>/dev/null || echo "<div class='stat-item'><div>No results available</div></div>")
@@ -135,7 +154,7 @@ cat << 'EOF' > security-results/report.html
         </div>
 
         <!-- Snyk Results -->
-        <div class="tool-section">
+        <div class="tool-section snyk">
             <h2>Software Composition Analysis (Snyk)</h2>
             <div class="findings">
                 $(jq -r '.vulnerabilities[] | "<div class=\"vulnerability-item severity-" + (.severity|ascii_downcase) + "\"><div class=\"vulnerability-title\">" + .title + "</div><div class=\"metadata\">Package: " + .package + " (Version: " + .version + ")</div><div class=\"metadata\">Fixed in: " + (.fixedIn[0] // "No fix available") + "</div><div class=\"description\">" + .description + "</div></div>"' security-results/snyk/scan-results.json 2>/dev/null || echo "<p>No vulnerabilities found</p>")
@@ -143,7 +162,7 @@ cat << 'EOF' > security-results/report.html
         </div>
 
         <!-- Trivy Results -->
-        <div class="tool-section">
+        <div class="tool-section trivy">
             <h2>Container Security (Trivy)</h2>
             <div class="findings">
                 $(jq -r '.Results[]? | .Vulnerabilities[]? | "<div class=\"vulnerability-item severity-" + (.Severity|ascii_downcase) + "\"><div class=\"vulnerability-title\">" + .VulnerabilityID + ": " + .Title + "</div><div class=\"metadata\">Package: " + .PkgName + " (Version: " + .InstalledVersion + ")</div><div class=\"metadata\">Fixed Version: " + (.FixedVersion // "No fix available") + "</div></div>"' security-results/trivy/scan-results.json 2>/dev/null || echo "<p>No vulnerabilities found</p>")
@@ -151,7 +170,7 @@ cat << 'EOF' > security-results/report.html
         </div>
 
         <!-- ZAP Results -->
-        <div class="tool-section">
+        <div class="tool-section zap">
             <h2>Dynamic Application Security Testing (OWASP ZAP)</h2>
             <div class="findings">
                 $(jq -r '.site[]?.alerts[]? | "<div class=\"vulnerability-item severity-" + (if .riskcode == "3" then "critical" elif .riskcode == "2" then "high" elif .riskcode == "1" then "medium" else "low" end) + "\"><div class=\"vulnerability-title\">" + .name + "</div><div class=\"metadata\">Risk Level: " + .riskdesc + "</div><div class=\"description\">" + .desc + "</div><div class=\"solution\"><strong>Solution:</strong><br/>" + .solution + "</div></div>"' security-results/zap/zap-output.json 2>/dev/null || echo "<p>No vulnerabilities found</p>")
