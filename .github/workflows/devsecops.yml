@@ -194,25 +194,33 @@ jobs:
       - name: Create Results Directory
         run: |
           mkdir -p security-results/zap
-          chmod -R 777 security-results/zap
+          mkdir -p /tmp/zap
+          sudo chmod -R 777 security-results/zap /tmp/zap
 
       - name: Run ZAP Scan
         run: |
           docker pull softwaresecurityproject/zap-stable:2.14.0
-          docker run --user $(id -u):$(id -g) \
+          
+          # Create temporary directory for ZAP with correct permissions
+          sudo mkdir -p /tmp/zap_results
+          sudo chown 1000:1000 /tmp/zap_results
+          sudo chmod 777 /tmp/zap_results
+          
+          docker run --user root \
             --network host \
             --rm \
-            -v $(pwd):/zap/wrk:rw \
+            -v /tmp/zap_results:/zap/wrk:rw \
+            -v /tmp/zap:/home/zap:rw \
+            -e HOME=/tmp/zap \
             softwaresecurityproject/zap-stable:2.14.0 \
             zap-baseline.py \
             -t http://localhost:5000 \
-            -J security-results/zap/zap-output.json \
-            -I
+            -J /zap/wrk/zap-output.json \
+            -I \
+            -z "-config api.disablekey=true"
           
-          if [ ! -f security-results/zap/zap-output.json ]; then
-            echo "No ZAP results found"
-            echo '{"site": [{"alerts": []}]}' > security-results/zap/zap-output.json
-          fi
+          # Copy results to artifact directory
+          cp /tmp/zap_results/zap-output.json security-results/zap/ || echo '{"site": [{"alerts": []}]}' > security-results/zap/zap-output.json
 
       - name: Upload ZAP Results
         uses: actions/upload-artifact@v4
