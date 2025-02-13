@@ -1,5 +1,5 @@
 # .zap/rules.tsv
-10001	IGNORE	SQL Injection Checks	# Temporarily ignore SQL injection for development
+10001	IGNORE	SQL Injection Checks
 10015	WARN	SQL Injection Timing Checks
 10024	IGNORE	Anti-CSRF Tokens Check
 10025	WARN	Proxy Disclosure

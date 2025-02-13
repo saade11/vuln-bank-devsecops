@@ -151,29 +151,52 @@ jobs:
   zap_scan:
     name: Dynamic Analysis (OWASP ZAP)
     runs-on: ubuntu-latest
-    continue-on-error: true  # Allows the workflow to continue even if ZAP fails
+    continue-on-error: true
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Create ZAP Results Directory
-        run: mkdir -p security-results/zap
-
-      - name: Run OWASP ZAP Scan
-        uses: zaproxy/action-baseline@v0.9.0
+      - name: Set Up Python
+        uses: actions/setup-python@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          # Use the alternative image from Docker Hub (or switch to GHCR if desired)
-          docker_name: 'zaproxy/zap-stable:latest'
-          target: 'http://localhost:5000'
-          rules_file_name: '.zap/rules.tsv'
-          cmd_options: '-J security-results/zap/zap-results.json'
+          python-version: '3.9'
 
-      - name: Upload ZAP Artifact
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Start and Verify Flask Application
+        run: |
+          chmod +x scripts/health_check.sh
+          ./scripts/health_check.sh
+
+      - name: Create Results Directory
+        run: |
+          mkdir -p security-results/zap
+          chmod -R 777 security-results/zap
+
+      - name: Run ZAP Scan
+        run: |
+          docker pull softwaresecurityproject/zap-stable:2.14.0
+          docker run --user $(id -u):$(id -g) \
+            --rm \
+            -v $(pwd):/zap/wrk:rw \
+            softwaresecurityproject/zap-stable:2.14.0 \
+            zap-baseline.py \
+            -t http://host.docker.internal:5000 \
+            -J security-results/zap/zap-output.json
+
+      - name: Cleanup Docker Image
+        if: always()
+        run: docker rmi softwaresecurityproject/zap-stable:2.14.0
+
+      - name: Upload ZAP Results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: zap-results
-          path: security-results/zap/zap-results.json
+          path: security-results/zap/
           retention-days: 90
 
   # -----------------------------

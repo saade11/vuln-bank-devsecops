@@ -291,6 +291,14 @@ def create_admin():
     
     return redirect(url_for('admin_panel'))
 
+
+@app.route('/health')
+def health_check():
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': str(datetime.now())
+    })
+
 if __name__ == '__main__':
     init_db()
     app.run(host='0.0.0.0', port=5000, debug=True)
