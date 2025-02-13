@@ -1,269 +1,165 @@
 #!/bin/bash
 # scripts/generate_report.sh
 
-# Create report directory
-mkdir -p security-results
+echo "Generating security report..."
 
-# Generate the report
-cat << 'EOF' > report_template.html
+cat << 'EOF' > security-results/report.html
 <!DOCTYPE html>
 <html>
 <head>
     <title>Security Scan Results</title>
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 20px;
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
             line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
             color: #333;
         }
-        .tool-section { 
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .tool-section {
             margin-bottom: 40px;
             padding: 20px;
             border: 1px solid #ddd;
-            border-radius: 5px;
+            border-radius: 4px;
         }
-        .severity-critical { color: darkred; font-weight: bold; }
-        .severity-high { color: red; }
-        .severity-medium { color: orange; }
-        .severity-low { color: #999900; }
-        .status-failed { color: red; }
-        .status-passed { color: green; }
-        .status-skipped { color: gray; }
-        .vulnerability-item {
-            margin: 10px 0;
-            padding: 10px;
-            background-color: #f9f9f9;
-            border-left: 4px solid #ddd;
-        }
-        .summary-box {
-            background-color: #f0f0f0;
-            padding: 15px;
-            border-radius: 5px;
+        .tool-section h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
             margin-bottom: 20px;
         }
-        .no-results {
-            color: #666;
-            font-style: italic;
+        .vulnerability-item {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-left: 4px solid #ddd;
+            border-radius: 4px;
         }
+        .severity-critical { border-left-color: #7d0000; }
+        .severity-high { border-left-color: #d73a4a; }
+        .severity-medium { border-left-color: #fb8c00; }
+        .severity-low { border-left-color: #ffca28; }
+        .severity-info { border-left-color: #0366d6; }
+        
+        .vulnerability-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .metadata {
+            font-size: 0.9em;
+            color: #666;
+            margin: 5px 0;
+        }
+        .severity-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            font-weight: bold;
+            color: white;
+        }
+        .badge-critical { background-color: #7d0000; }
+        .badge-high { background-color: #d73a4a; }
+        .badge-medium { background-color: #fb8c00; }
+        .badge-low { background-color: #ffca28; color: #333; }
+        .badge-info { background-color: #0366d6; }
+        
         .stats {
             display: flex;
             justify-content: space-around;
             margin: 20px 0;
+            flex-wrap: wrap;
         }
         .stat-item {
             text-align: center;
-            padding: 10px;
+            padding: 15px;
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin: 10px;
+            min-width: 150px;
         }
-    </style>
-</head>
-<body>
-    <h1>Security Scan Results</h1>
-    <div class='summary-box'>
-        <h2>Executive Summary</h2>
-        <p>Scan completed at DATETIME</p>
-        <p>Repository: REPO_NAME</p>
-        <p>Branch: BRANCH_NAME</p>
-    </div>
-    
-    SCAN_RESULTS
-</body>
-</html>
-EOF
-
-# Function to process scan results
-process_results() {
-    local output=""
-    
-    # Process SonarQube Results
-    output+="<div class='tool-section'>"
-    output+="<h2>Static Application Security Testing (SonarQube)</h2>"
-    if [ -f "security-results/sonarqube/issues.json" ]; then
-        output+=$(jq -r '.issues[] | "<div class=\"vulnerability-item severity-\(.severity)\"><h3>\(.message)</h3><p>Location: \(.component)</p><p>Type: \(.type)</p></div>"' security-results/sonarqube/issues.json 2>/dev/null || echo "<p class='no-results'>No issues found</p>")
-    else
-        output+="<p class='no-results'>SonarQube scan was not completed</p>"
-    fi
-    output+="</div>"
-    
-    # Process Snyk Results
-    output+="<div class='tool-section'>"
-    output+="<h2>Software Composition Analysis (Snyk)</h2>"
-    if [ -f "security-results/snyk/scan-results.json" ]; then
-        output+=$(jq -r '.vulnerabilities[]? | "<div class=\"vulnerability-item severity-\(.severity)\"><h3>\(.title)</h3><p>Package: \(.package)</p><p>Version: \(.version)</p><p>Fix: \(.fix.upgradeTo // "No fix available")</p></div>"' security-results/snyk/scan-results.json 2>/dev/null || echo "<p class='no-results'>No vulnerabilities found</p>")
-    else
-        output+="<p class='no-results'>Snyk scan was not completed</p>"
-    fi
-    output+="</div>"
-    
-    # Process Trivy Results
-    output+="<div class='tool-section'>"
-    output+="<h2>Container Security (Trivy)</h2>"
-    if [ -f "security-results/trivy/scan-results.json" ]; then
-        output+=$(jq -r '.Results[]? | .Vulnerabilities[]? | "<div class=\"vulnerability-item severity-\(.Severity | ascii_downcase)\"><h3>\(.VulnerabilityID): \(.Title)</h3><p>Package: \(.PkgName)</p><p>Installed Version: \(.InstalledVersion)</p><p>Fixed Version: \(.FixedVersion // "No fix available")</p></div>"' security-results/trivy/scan-results.json 2>/dev/null || echo "<p class='no-results'>No vulnerabilities found</p>")
-    else
-        output+="<p class='no-results'>Trivy scan was not completed</p>"
-    fi
-    output+="</div>"
-    
-    # Process ZAP Results
-    output+="<div class='tool-section'>"
-    output+="<h2>Dynamic Application Security Testing (ZAP)</h2>"
-    if [ -f "security-results/zap/zap-output.json" ]; then
-        output+=$(jq -r '.site[]?.alerts[]? | "<div class=\"vulnerability-item severity-\(.risk | ascii_downcase)\"><h3>\(.name)</h3><p>Risk Level: \(.risk)</p><p>Description: \(.description)</p><p>Solution: \(.solution)</p></div>"' security-results/zap/zap-output.json 2>/dev/null || echo "<p class='no-results'>No vulnerabilities found</p>")
-    else
-        output+="<p class='no-results'>ZAP scan was not completed</p>"
-    fi
-    output+="</div>"
-    
-    echo "$output"
-}
-
-# Generate the final report
-SCAN_RESULTS=$(process_results)
-DATETIME=$(date)
-REPO_NAME=$GITHUB_REPOSITORY
-BRANCH_NAME=$GITHUB_REF
-
-# Replace placeholders in template
-sed -e "s|DATETIME|$DATETIME|g" \
-    -e "s|REPO_NAME|$REPO_NAME|g" \
-    -e "s|BRANCH_NAME|$BRANCH_NAME|g" \
-    -e "s|SCAN_RESULTS|$SCAN_RESULTS|g" \
-    report_template.html > security-results/report.html
-
-# Clean up template
-rm report_template.html#!/bin/bash
-# scripts/generate_report.sh
-
-# Create report directory
-mkdir -p security-results
-
-# Generate the report
-cat << 'EOF' > report_template.html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Security Scan Results</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 20px;
-            line-height: 1.6;
-            color: #333;
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
         }
-        .tool-section { 
-            margin-bottom: 40px;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        .severity-critical { color: darkred; font-weight: bold; }
-        .severity-high { color: red; }
-        .severity-medium { color: orange; }
-        .severity-low { color: #999900; }
-        .status-failed { color: red; }
-        .status-passed { color: green; }
-        .status-skipped { color: gray; }
-        .vulnerability-item {
+        .description {
             margin: 10px 0;
             padding: 10px;
-            background-color: #f9f9f9;
-            border-left: 4px solid #ddd;
+            background: #f8f9fa;
+            border-radius: 4px;
         }
-        .summary-box {
-            background-color: #f0f0f0;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        .no-results {
-            color: #666;
-            font-style: italic;
-        }
-        .stats {
-            display: flex;
-            justify-content: space-around;
-            margin: 20px 0;
-        }
-        .stat-item {
-            text-align: center;
+        .solution {
+            margin: 10px 0;
             padding: 10px;
+            background: #e3f2fd;
+            border-radius: 4px;
         }
     </style>
 </head>
 <body>
-    <h1>Security Scan Results</h1>
-    <div class='summary-box'>
-        <h2>Executive Summary</h2>
-        <p>Scan completed at DATETIME</p>
-        <p>Repository: REPO_NAME</p>
-        <p>Branch: BRANCH_NAME</p>
+    <div class="container">
+        <div class="header">
+            <h1>Security Scan Results</h1>
+            <p>Generated on $(date)</p>
+            <p>Repository: $GITHUB_REPOSITORY</p>
+            <p>Branch: $GITHUB_REF</p>
+        </div>
+
+        <!-- SonarQube Results -->
+        <div class="tool-section">
+            <h2>Static Application Security Testing (SonarQube)</h2>
+            <div class="stats">
+                $(jq -r '.issues | group_by(.severity) | map({severity: .[0].severity, count: length}) | map("<div class=\"stat-item\"><div class=\"stat-number\">" + (.count|tostring) + "</div><div>" + .severity + "</div></div>") | join("")' security-results/sonarqube/issues.json 2>/dev/null || echo "<div class='stat-item'><div>No results available</div></div>")
+            </div>
+            <div class="findings">
+                $(jq -r '.issues[] | "<div class=\"vulnerability-item severity-" + (.severity|ascii_downcase) + "\"><div class=\"vulnerability-title\">" + .message + "</div><div class=\"metadata\">Location: " + .component + "</div><div class=\"metadata\">Type: " + .type + "</div></div>"' security-results/sonarqube/issues.json 2>/dev/null || echo "<p>No issues found</p>")
+            </div>
+        </div>
+
+        <!-- Snyk Results -->
+        <div class="tool-section">
+            <h2>Software Composition Analysis (Snyk)</h2>
+            <div class="findings">
+                $(jq -r '.vulnerabilities[] | "<div class=\"vulnerability-item severity-" + (.severity|ascii_downcase) + "\"><div class=\"vulnerability-title\">" + .title + "</div><div class=\"metadata\">Package: " + .package + " (Version: " + .version + ")</div><div class=\"metadata\">Fixed in: " + (.fixedIn[0] // "No fix available") + "</div><div class=\"description\">" + .description + "</div></div>"' security-results/snyk/scan-results.json 2>/dev/null || echo "<p>No vulnerabilities found</p>")
+            </div>
+        </div>
+
+        <!-- Trivy Results -->
+        <div class="tool-section">
+            <h2>Container Security (Trivy)</h2>
+            <div class="findings">
+                $(jq -r '.Results[]? | .Vulnerabilities[]? | "<div class=\"vulnerability-item severity-" + (.Severity|ascii_downcase) + "\"><div class=\"vulnerability-title\">" + .VulnerabilityID + ": " + .Title + "</div><div class=\"metadata\">Package: " + .PkgName + " (Version: " + .InstalledVersion + ")</div><div class=\"metadata\">Fixed Version: " + (.FixedVersion // "No fix available") + "</div></div>"' security-results/trivy/scan-results.json 2>/dev/null || echo "<p>No vulnerabilities found</p>")
+            </div>
+        </div>
+
+        <!-- ZAP Results -->
+        <div class="tool-section">
+            <h2>Dynamic Application Security Testing (OWASP ZAP)</h2>
+            <div class="findings">
+                $(jq -r '.site[]?.alerts[]? | "<div class=\"vulnerability-item severity-" + (if .riskcode == "3" then "critical" elif .riskcode == "2" then "high" elif .riskcode == "1" then "medium" else "low" end) + "\"><div class=\"vulnerability-title\">" + .name + "</div><div class=\"metadata\">Risk Level: " + .riskdesc + "</div><div class=\"description\">" + .desc + "</div><div class=\"solution\"><strong>Solution:</strong><br/>" + .solution + "</div></div>"' security-results/zap/zap-output.json 2>/dev/null || echo "<p>No vulnerabilities found</p>")
+            </div>
+        </div>
     </div>
-    
-    SCAN_RESULTS
 </body>
 </html>
 EOF
 
-# Function to process scan results
-process_results() {
-    local output=""
-    
-    # Process SonarQube Results
-    output+="<div class='tool-section'>"
-    output+="<h2>Static Application Security Testing (SonarQube)</h2>"
-    if [ -f "security-results/sonarqube/issues.json" ]; then
-        output+=$(jq -r '.issues[] | "<div class=\"vulnerability-item severity-\(.severity)\"><h3>\(.message)</h3><p>Location: \(.component)</p><p>Type: \(.type)</p></div>"' security-results/sonarqube/issues.json 2>/dev/null || echo "<p class='no-results'>No issues found</p>")
-    else
-        output+="<p class='no-results'>SonarQube scan was not completed</p>"
-    fi
-    output+="</div>"
-    
-    # Process Snyk Results
-    output+="<div class='tool-section'>"
-    output+="<h2>Software Composition Analysis (Snyk)</h2>"
-    if [ -f "security-results/snyk/scan-results.json" ]; then
-        output+=$(jq -r '.vulnerabilities[]? | "<div class=\"vulnerability-item severity-\(.severity)\"><h3>\(.title)</h3><p>Package: \(.package)</p><p>Version: \(.version)</p><p>Fix: \(.fix.upgradeTo // "No fix available")</p></div>"' security-results/snyk/scan-results.json 2>/dev/null || echo "<p class='no-results'>No vulnerabilities found</p>")
-    else
-        output+="<p class='no-results'>Snyk scan was not completed</p>"
-    fi
-    output+="</div>"
-    
-    # Process Trivy Results
-    output+="<div class='tool-section'>"
-    output+="<h2>Container Security (Trivy)</h2>"
-    if [ -f "security-results/trivy/scan-results.json" ]; then
-        output+=$(jq -r '.Results[]? | .Vulnerabilities[]? | "<div class=\"vulnerability-item severity-\(.Severity | ascii_downcase)\"><h3>\(.VulnerabilityID): \(.Title)</h3><p>Package: \(.PkgName)</p><p>Installed Version: \(.InstalledVersion)</p><p>Fixed Version: \(.FixedVersion // "No fix available")</p></div>"' security-results/trivy/scan-results.json 2>/dev/null || echo "<p class='no-results'>No vulnerabilities found</p>")
-    else
-        output+="<p class='no-results'>Trivy scan was not completed</p>"
-    fi
-    output+="</div>"
-    
-    # Process ZAP Results
-    output+="<div class='tool-section'>"
-    output+="<h2>Dynamic Application Security Testing (ZAP)</h2>"
-    if [ -f "security-results/zap/zap-output.json" ]; then
-        output+=$(jq -r '.site[]?.alerts[]? | "<div class=\"vulnerability-item severity-\(.risk | ascii_downcase)\"><h3>\(.name)</h3><p>Risk Level: \(.risk)</p><p>Description: \(.description)</p><p>Solution: \(.solution)</p></div>"' security-results/zap/zap-output.json 2>/dev/null || echo "<p class='no-results'>No vulnerabilities found</p>")
-    else
-        output+="<p class='no-results'>ZAP scan was not completed</p>"
-    fi
-    output+="</div>"
-    
-    echo "$output"
-}
-
-# Generate the final report
-SCAN_RESULTS=$(process_results)
-DATETIME=$(date)
-REPO_NAME=$GITHUB_REPOSITORY
-BRANCH_NAME=$GITHUB_REF
-
-# Replace placeholders in template
-sed -e "s|DATETIME|$DATETIME|g" \
-    -e "s|REPO_NAME|$REPO_NAME|g" \
-    -e "s|BRANCH_NAME|$BRANCH_NAME|g" \
-    -e "s|SCAN_RESULTS|$SCAN_RESULTS|g" \
-    report_template.html > security-results/report.html
-
-# Clean up template
-rm report_template.html
+echo "Report generated successfully at security-results/report.html"
