@@ -284,19 +284,19 @@ jobs:
       - name: Install jq
         run: sudo apt-get install -y jq
 
-      - name: Debug - List Downloaded Files
-        run: |
-          echo "Contents of security-results directory:"
-          ls -R security-results/
-          
-          for tool in sonarqube snyk trivy checkov zap; do
-            echo "Contents of $tool results:"
-            cat security-results/$tool/* || echo "No results file found"
-          done
-
       - name: Generate HTML Report
         run: |
-          cat << 'EOF' > security-results/report.html
+          # Create a function to format JSON content
+          format_json() {
+            if [ -f "$1" ]; then
+              cat "$1" | jq -r '.' || echo "Invalid JSON format"
+            else
+              echo "No results available"
+            fi
+          }
+
+          # Generate the report with actual content
+          cat << EOF > security-results/report.html
           <!DOCTYPE html>
           <html>
           <head>
@@ -317,40 +317,43 @@ jobs:
               <div class="tool-section">
                   <h2>SonarQube Results</h2>
                   <pre>
-                  $(cat security-results/sonarqube/issues.json || echo "No results available")
+          $(format_json "security-results/sonarqube/issues.json")
                   </pre>
               </div>
               
               <div class="tool-section">
                   <h2>Snyk Results</h2>
                   <pre>
-                  $(cat security-results/snyk/scan-results.json || echo "No results available")
+          $(format_json "security-results/snyk/scan-results.json")
                   </pre>
               </div>
               
               <div class="tool-section">
                   <h2>Trivy Results</h2>
                   <pre>
-                  $(cat security-results/trivy/scan-results.json || echo "No results available")
+          $(format_json "security-results/trivy/scan-results.json")
                   </pre>
               </div>
               
               <div class="tool-section">
                   <h2>Checkov Results</h2>
                   <pre>
-                  $(cat security-results/checkov/results.json || echo "No results available")
+          $(format_json "security-results/checkov/results.json")
                   </pre>
               </div>
               
               <div class="tool-section">
                   <h2>ZAP Results</h2>
                   <pre>
-                  $(cat security-results/zap/zap-output.json || echo "No results available")
+          $(format_json "security-results/zap/zap-output.json")
                   </pre>
               </div>
           </body>
           </html>
           EOF
+
+      - name: Debug - Show Report Content
+        run: cat security-results/report.html
 
       - name: Upload HTML Report
         uses: actions/upload-artifact@v4
