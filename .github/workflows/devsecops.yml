@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@master
         continue-on-error: true
@@ -33,7 +33,7 @@ jobs:
           curl -H "Authorization: Bearer ${{ secrets.SONAR_TOKEN }}" \
                "${{ secrets.SONAR_HOST_URL }}/api/issues/search?projectKeys=saade11_vuln-bank-devsecops" \
                > security-results/sonarqube/issues.json
-          
+
           if [ -s security-results/sonarqube/issues.json ]; then
             echo "SonarQube results saved successfully"
           else
@@ -167,7 +167,7 @@ jobs:
           path: security-results/checkov/results.json
           retention-days: 90
 
-  # Dynamic Analysis
+  # Dynamic Analysis - FIXED VERSION
   zap_scan:
     name: Dynamic Analysis (OWASP ZAP)
     runs-on: ubuntu-latest
@@ -186,10 +186,30 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Start and Verify Flask Application
+      - name: Start Flask Application and Wait
         run: |
-          chmod +x scripts/health_check.sh
-          ./scripts/health_check.sh
+          echo "Starting Flask application..."
+          nohup python app.py > app.log 2>&1 &
+          APP_PID=$!
+          echo "Flask app started with PID: $APP_PID"
+          
+          # Wait for app to start
+          sleep 15
+          
+          # Check if app is running
+          MAX_RETRIES=10
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i of $MAX_RETRIES to check application health..."
+            if curl -f http://localhost:5000/health; then
+              echo "Application is running and healthy!"
+              break
+            elif [ $i -eq $MAX_RETRIES ]; then
+              echo "Application failed to start after $MAX_RETRIES attempts. Logs:"
+              cat app.log
+              exit 1
+            fi
+            sleep 3
+          done
 
       - name: Create Results Directory and Set Permissions
         run: |
@@ -200,11 +220,11 @@ jobs:
       - name: Run ZAP Scan
         run: |
           docker pull softwaresecurityproject/zap-stable:2.14.0
-          
-          # Create zap.yaml with correct permissions
+
+          # Create zap directory with correct permissions
           sudo mkdir -p /home/runner/zap
           sudo chown -R 1000:1000 /home/runner/zap
-          
+
           docker run --user 1000:1000 \
             --rm \
             -v $(pwd):/zap/wrk:rw \
@@ -218,7 +238,7 @@ jobs:
 
       - name: Cleanup Docker Image
         if: always()
-        run: docker rmi softwaresecurityproject/zap-stable:2.14.0
+        run: docker rmi softwaresecurityproject/zap-stable:2.14.0 || true
 
       - name: Upload ZAP Results
         if: always()
@@ -313,35 +333,35 @@ jobs:
           </head>
           <body>
               <h1>Security Scan Results</h1>
-              
+
               <div class="tool-section">
                   <h2>SonarQube Results</h2>
                   <pre>
           $(format_json "security-results/sonarqube/issues.json")
                   </pre>
               </div>
-              
+
               <div class="tool-section">
                   <h2>Snyk Results</h2>
                   <pre>
           $(format_json "security-results/snyk/scan-results.json")
                   </pre>
               </div>
-              
+
               <div class="tool-section">
                   <h2>Trivy Results</h2>
                   <pre>
           $(format_json "security-results/trivy/scan-results.json")
                   </pre>
               </div>
-              
+
               <div class="tool-section">
                   <h2>Checkov Results</h2>
                   <pre>
           $(format_json "security-results/checkov/results.json")
                   </pre>
               </div>
-              
+
               <div class="tool-section">
                   <h2>ZAP Results</h2>
                   <pre>
