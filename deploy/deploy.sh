@@ -9,7 +9,7 @@ echo "Starting deployment..."
 # Variables
 EC2_HOST="${EC2_HOST}"
 SSH_KEY="${SSH_PRIVATE_KEY}"
-APP_NAME="vulnerable-bank"
+APP_NAME="vuln-bank-devsecops"
 
 # Save SSH key
 echo "$SSH_KEY" > deploy_key.pem
@@ -28,13 +28,13 @@ echo "Copying files to EC2..."
 scp -i deploy_key.pem \
     -o StrictHostKeyChecking=no \
     app.tar \
-    ubuntu@${EC2_HOST}:~/
+    ec2-user@${EC2_HOST}:~/
 
 # Deploy on EC2
 echo "Deploying on EC2..."
 ssh -i deploy_key.pem \
     -o StrictHostKeyChecking=no \
-    ubuntu@${EC2_HOST} \
+    ec2-user@${EC2_HOST} \
     "docker load < app.tar && \
      docker stop $APP_NAME || true && \
      docker rm $APP_NAME || true && \

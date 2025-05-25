@@ -22,8 +22,8 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         with:
           args: >
-            -Dsonar.projectKey=commando-x_vuln-bank
-            -Dsonar.organization=commando-x
+            -Dsonar.projectKey=saade11_vuln-bank-devsecops
+            -Dsonar.organization=saade11
             -Dsonar.sources=.
             -Dsonar.python.version=3.9
 
@@ -31,7 +31,7 @@ jobs:
         run: |
           mkdir -p security-results/sonarqube
           curl -H "Authorization: Bearer ${{ secrets.SONAR_TOKEN }}" \
-               "${{ secrets.SONAR_HOST_URL }}/api/issues/search?projectKeys=commando-x_vuln-bank" \
+               "${{ secrets.SONAR_HOST_URL }}/api/issues/search?projectKeys=saade11_vuln-bank-devsecops" \
                > security-results/sonarqube/issues.json
           
           if [ -s security-results/sonarqube/issues.json ]; then
@@ -100,7 +100,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build Docker Image
-        run: docker build -t vulnerable-bank:latest .
+        run: docker build -t vuln-bank-devsecops:latest .
 
       - name: Create Results Directory
         run: mkdir -p security-results/trivy
@@ -108,7 +108,7 @@ jobs:
       - name: Run Trivy Scan
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'vulnerable-bank:latest'
+          image-ref: 'vuln-bank-devsecops:latest'
           format: 'json'
           output: 'security-results/trivy/scan-results.json'
           severity: 'CRITICAL,HIGH'
@@ -376,7 +376,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Deploy to EC2
         env:
