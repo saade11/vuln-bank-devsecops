@@ -383,6 +383,7 @@ jobs:
           retention-days: 90
 
   # Deployment
+# Deployment
   deploy:
     name: Deploy to EC2
     needs: [sast, sca, container_scan, iac_scan, zap_scan, report]
@@ -403,5 +404,45 @@ jobs:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
-          chmod +x deploy/deploy.sh
-          ./deploy/deploy.sh
+          echo "Starting deployment..."
+          
+          # Variables
+          APP_NAME="vuln-bank-devsecops"
+          
+          # Save SSH key
+          echo "$SSH_PRIVATE_KEY" > deploy_key.pem
+          chmod 600 deploy_key.pem
+          
+          # Build Docker image
+          echo "Building Docker image..."
+          docker build -t $APP_NAME .
+          
+          # Save image to tar
+          echo "Saving Docker image..."
+          docker save $APP_NAME > app.tar
+          
+          # Copy files to EC2
+          echo "Copying files to EC2..."
+          scp -i deploy_key.pem \
+              -o StrictHostKeyChecking=no \
+              app.tar \
+              ec2-user@${EC2_HOST}:~/
+          
+          # Deploy on EC2
+          echo "Deploying on EC2..."
+          ssh -i deploy_key.pem \
+              -o StrictHostKeyChecking=no \
+              ec2-user@${EC2_HOST} \
+              "docker load < app.tar && \
+               docker stop $APP_NAME || true && \
+               docker rm $APP_NAME || true && \
+               docker run -d \
+                 --name $APP_NAME \
+                 -p 80:5000 \
+                 --restart unless-stopped \
+                 $APP_NAME"
+          
+          # Cleanup
+          rm deploy_key.pem app.tar
+          
+          echo "Deployment completed successfully!"
